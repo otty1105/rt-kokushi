@@ -5,7 +5,6 @@ import { QuestionWithChoices, UserAnswer } from '@/types'
 import { formatCategory } from '@/lib/categoryName'
 import QuestionImage from '@/components/QuestionImage'
 import MathText from '@/components/MathText'
-import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 interface Props {
   questions: QuestionWithChoices[]

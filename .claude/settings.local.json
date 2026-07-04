@@ -83,7 +83,11 @@
       "Bash(pkill -f \"npm run dev\")",
       "Bash(git -C /Users/ochiaitakahiro/rt-kokushi status --short)",
       "Bash(grep -iE '\\\\.env|secret|credential|\\\\.pem|\\\\.key$')",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git remote *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)"
     ]
   }
 }
