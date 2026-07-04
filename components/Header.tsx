@@ -1,0 +1,114 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import type { User } from '@supabase/supabase-js'
+import { getSupabaseBrowser } from '@/lib/supabase-browser'
+
+interface Props {
+  initialUser: User | null
+}
+
+export default function Header({ initialUser }: Props) {
+  const [user, setUser] = useState<User | null>(initialUser)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  // Sync auth state changes (sign in/out in other tabs, etc.)
+  useEffect(() => {
+    const sb = getSupabaseBrowser()
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Close menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
+
+  async function handleSignOut() {
+    const sb = getSupabaseBrowser()
+    await sb.auth.signOut()
+    setMenuOpen(false)
+    router.push('/')
+    router.refresh()
+  }
+
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined
+  const avatarLetter = (user?.email?.[0] ?? user?.user_metadata?.name?.[0] ?? '?').toUpperCase()
+
+  return (
+    <header className="bg-blue-700 text-white shadow-md">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
+        <a href="/" className="font-bold hover:opacity-80 whitespace-nowrap leading-tight">
+          <span className="text-lg">MediOut</span>
+          <span className="hidden sm:inline text-xs font-normal ml-1 opacity-80">診療放射線技師国家試験対策</span>
+        </a>
+
+        <nav className="flex gap-4 ml-auto text-sm items-center">
+          <a href="/" className="hover:underline whitespace-nowrap">ホーム</a>
+          <a href="/study" className="hover:underline whitespace-nowrap">学習</a>
+          <a href="/test" className="hover:underline whitespace-nowrap">テスト</a>
+          <a href="/dashboard" className="hover:underline whitespace-nowrap">ダッシュボード</a>
+
+          {user ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                className="w-8 h-8 rounded-full overflow-hidden bg-white text-blue-700 font-bold text-sm flex items-center justify-center hover:opacity-90 flex-shrink-0"
+                aria-label="ユーザーメニュー"
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  avatarLetter
+                )}
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1 text-gray-800">
+                  <div className="px-4 py-2.5 border-b border-gray-100">
+                    <p className="text-xs text-gray-500 mb-0.5">ログイン中</p>
+                    <p className="text-sm font-medium truncate">
+                      {user.email ?? user.user_metadata?.name ?? 'ユーザー'}
+                    </p>
+                  </div>
+                  <a
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    プロフィール設定
+                  </a>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                  >
+                    ログアウト
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <a
+              href="/login"
+              className="bg-white text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors whitespace-nowrap"
+            >
+              ログイン
+            </a>
+          )}
+        </nav>
+      </div>
+    </header>
+  )
+}

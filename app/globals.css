@@ -5,14 +5,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-accent: #2563eb;
+  --bg-accent: #eff6ff;
+  --border: #e2e8f0;
+  --radius: 8px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 body {
   color: var(--foreground);
@@ -24,4 +26,50 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* MathJax (SVG出力) をテキストに埋め込んだ際のレイアウトを整える。
+   Tailwindのpreflightが svg を display:block にリセットしているため、
+   そのままだと数式が独立した行になってしまう（vertical-alignも効かない）。
+   svgをinlineに戻し、サイズ・縦位置はMathJax自身の計算に委ねる。
+   inline-block のベースライン計算を安定させるために line-height:1 を設定。 */
+mjx-container {
+  display: inline-block;
+  margin: 0 !important;
+  line-height: 1;
+}
+
+mjx-container svg {
+  display: inline;
+}
+
+/* 数式と直後のテキスト（核種名-薬剤名など）を改行させない */
+.math-nowrap {
+  white-space: nowrap;
+}
+
+/* 核種表記の上付き文字（99m, 201, 123 等）*/
+.nuclide-sup {
+  font-size: 0.65em;
+  vertical-align: 0.4em;
+  line-height: 1;
+}
+
+/* シンプルな上付き・下付き（MathJax 不使用）*/
+.math-sup {
+  font-size: 0.7em;
+  vertical-align: 0.35em;
+  line-height: 1;
+}
+.math-sub {
+  font-size: 0.7em;
+  vertical-align: -0.2em;
+  line-height: 1;
+}
+
+/* displaystyle の分数（\frac）は通常テキストの約2倍の高さになるため、
+   ラップ要素の line-height が固定されていると分数が詰まって見切れる。
+   選択肢ボタン・問題文の行高を自動拡張させる。 */
+.math-nowrap mjx-container {
+  vertical-align: middle;
 }
