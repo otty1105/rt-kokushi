@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Profile, UserStatus, School } from '@/types'
+import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 const STATUS_LABELS: Record<UserStatus, string> = {
   student:       '在学中',
@@ -24,6 +25,7 @@ export default function ProfileClient() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const [nickname, setNickname] = useState('')
   const [status, setStatus] = useState<UserStatus>('student')
@@ -96,6 +98,25 @@ export default function ProfileClient() {
       setError(err instanceof Error ? err.message : 'エラーが発生しました')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!confirm('本当に削除しますか？この操作は取り消せません')) return
+    setError('')
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/account', { method: 'DELETE' })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error ?? 'アカウントの削除に失敗しました')
+      }
+      await getSupabaseBrowser().auth.signOut()
+      router.push('/')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'アカウントの削除に失敗しました')
+      setDeleting(false)
     }
   }
 
@@ -267,6 +288,21 @@ export default function ProfileClient() {
           {saving ? '保存中...' : '保存する'}
         </button>
       </form>
+
+      <div className="mt-8 border border-red-200 bg-red-50 rounded-2xl p-6">
+        <h2 className="text-sm font-bold text-red-700 mb-1">アカウントを削除する</h2>
+        <p className="text-xs text-red-600 mb-4">
+          プロフィール・回答履歴・投稿した解説・いいねなど、すべてのデータが完全に削除されます。この操作は取り消せません。
+        </p>
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+          className="text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-4 py-2.5 transition-colors"
+        >
+          {deleting ? '削除中...' : 'アカウントを削除する'}
+        </button>
+      </div>
     </div>
   )
 }
