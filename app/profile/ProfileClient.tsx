@@ -289,20 +289,18 @@ export default function ProfileClient() {
         </button>
       </form>
 
-      <div className="mt-8 border border-red-200 bg-red-50 rounded-2xl p-6">
-        <h2 className="text-sm font-bold text-red-700 mb-1">アカウントを削除する</h2>
-        <p className="text-xs text-red-600 mb-4">
-          プロフィール・回答履歴・投稿した解説・いいねなど、すべてのデータが完全に削除されます。この操作は取り消せません。
-        </p>
-        <button
-          type="button"
-          onClick={handleDeleteAccount}
-          disabled={deleting}
-          className="text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-4 py-2.5 transition-colors"
-        >
-          {deleting ? '削除中...' : 'アカウントを削除する'}
-        </button>
-      </div>
+      {!isSetup && (
+        <div className="mt-8 text-center">
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            className="text-xs text-gray-400 hover:text-red-600 underline disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {deleting ? '削除中...' : 'アカウントを削除する'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

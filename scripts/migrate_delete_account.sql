@@ -9,28 +9,27 @@
 -- クライアント側（Next.js）は service_role キーを一切使わずに
 -- 「自分のアカウントだけ」削除できる。
 --
--- 前提となるテーブル定義（本リポジトリのマイグレーションスクリプトで確認済み）：
---   profiles.id            REFERENCES auth.users(id) ON DELETE CASCADE
---   explanations.user_id   REFERENCES auth.users(id) ON DELETE CASCADE
---   explanation_images.explanation_id REFERENCES explanations(id) ON DELETE CASCADE
+-- 実際に稼働中のDBで pg_constraint を確認した結果（2026-07時点）：
+--   public.profiles.profiles_id_fkey            -> auth.users(id)        : NO ACTION（CASCADEではない）
+--   public.explanation_images_explanation_id_fkey -> explanations(id)     : CASCADE
+--   public.explanation_likes_explanation_id_fkey  -> explanations(id)    : NO ACTION（CASCADEではない）
+--   explanations.user_id -> auth.users(id) の制約は存在しない
+--   user_answers / explanation_likes の user_id -> auth.users(id) の制約も存在しない
 --
--- user_answers / explanation_likes はダッシュボードで直接作成されたテーブルのため
--- 本リポジトリのSQL履歴には定義がありません。user_id カラム名を前提にしています。
--- 実際のカラム名が異なる場合は書き換えてください。
+-- 上記のとおりリポジトリ内の他のマイグレーションスクリプトの記述（ON DELETE CASCADE）と
+-- 実際のスキーマは一致していない。特に explanation_likes.explanation_id が NO ACTION のため、
+-- 「自分の解説に他人がつけたいいね」を先に消さないと DELETE FROM explanations が失敗する。
+-- 下の関数はこれを踏まえて明示的に削除している。
 --
--- ⚠️ 実行前に必ず、auth.users を参照している全テーブルを確認してください。
--- CASCADE 設定のない参照が残っていると、最後の DELETE FROM auth.users で
--- 外部キー制約違反が発生し、関数全体がロールバックされます。
+-- ⚠️ 今後スキーマを変更した場合は、以下のクエリで auth.users / explanations を
+-- 参照している制約を再確認し、CASCADEでない参照が残っていないか確認すること。
 --
---   SELECT tc.table_name, kcu.column_name, rc.delete_rule
---   FROM information_schema.table_constraints tc
---   JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
---   JOIN information_schema.referential_constraints rc ON tc.constraint_name = rc.constraint_name
---   JOIN information_schema.constraint_column_usage ccu ON rc.unique_constraint_name = ccu.constraint_name
---   WHERE ccu.table_name = 'users' AND ccu.table_schema = 'auth';
---
--- ここに出てきたテーブルのうち、下の関数でDELETEしていないもの
--- （例: flagged_questions など）があれば、DELETE文を追加してください。
+--   SELECT conrelid::regclass, conname,
+--     CASE confdeltype WHEN 'c' THEN 'CASCADE' WHEN 'n' THEN 'SET NULL'
+--       WHEN 'd' THEN 'SET DEFAULT' WHEN 'r' THEN 'RESTRICT' ELSE 'NO ACTION' END
+--   FROM pg_constraint
+--   WHERE confrelid IN ('auth.users'::regclass, 'public.explanations'::regclass)
+--     AND contype = 'f';
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.delete_own_account()
@@ -46,8 +45,13 @@ BEGIN
     RAISE EXCEPTION 'not authenticated';
   END IF;
 
-  -- いいね（他人の解説につけたものも含む）
+  -- 自分がつけたいいね
   DELETE FROM public.explanation_likes WHERE user_id = uid;
+
+  -- 自分の解説に他人がつけたいいね
+  -- （explanation_likes.explanation_id は NO ACTION のため、explanations削除前に消す必要がある）
+  DELETE FROM public.explanation_likes
+  WHERE explanation_id IN (SELECT id FROM public.explanations WHERE user_id = uid);
 
   -- 回答履歴
   DELETE FROM public.user_answers WHERE user_id = uid;
