@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import { createSupabaseServer } from '@/lib/supabase-server'
 import { QuestionForTest } from '@/types'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import TestSolveClient from './TestSolveClient'
 
 interface Props {
@@ -39,6 +40,16 @@ export default async function TestPeriodPage({ params }: Props) {
 
   if (!['am', 'pm'].includes(period) || isNaN(year) || isNaN(examNum)) {
     notFound()
+  }
+
+  // テストモードは採点結果をアカウントに記録するため、未ログインでは受験できない
+  const supabaseServer = createSupabaseServer()
+  const {
+    data: { user },
+  } = await supabaseServer.auth.getUser()
+  if (!user) {
+    const returnTo = `/test/${params.year}/${params.examNum}/${params.period}`
+    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`)
   }
 
   const questions = await getQuestions(year, examNum, period)

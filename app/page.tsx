@@ -31,6 +31,9 @@ export default function Home() {
           <p className="text-xs text-gray-500 group-hover:text-blue-100 transition-colors mt-1">
             年度・午前午後を選んで本番形式で解答・採点
           </p>
+          <p className="text-[11px] text-blue-500 group-hover:text-blue-100 transition-colors mt-1">
+            ※ログインが必要です
+          </p>
         </Link>
       </div>
 
