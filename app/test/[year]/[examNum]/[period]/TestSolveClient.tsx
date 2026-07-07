@@ -1,35 +1,21 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { QuestionWithChoices, UserAnswer } from '@/types'
+import { QuestionForTest, UserAnswer, GradedResult } from '@/types'
 import { formatCategory } from '@/lib/categoryName'
 import QuestionImage from '@/components/QuestionImage'
 import MathText from '@/components/MathText'
 
 interface Props {
-  questions: QuestionWithChoices[]
+  questions: QuestionForTest[]
 }
 
-type Phase = 'pre' | 'solve' | 'result'
+type Phase = 'pre' | 'solve' | 'grading' | 'result'
 
 const EXAM_SECONDS = 9300 // 2h35m
 
 function formatChoiceText(text: string): string {
   return text.replace(/(\d[\d,.]*)\s+([A-Z]{1,4}\s*―)/g, '$1　$2')
-}
-
-function isCorrect(q: QuestionWithChoices, answer: UserAnswer | undefined): boolean {
-  if (!answer) return false
-  const correctNums = q.correct_choices.map((c) => c.num)
-  const selectedNums = answer.selectedNums
-  // select_count=1 かつ正答が複数件の場合：選んだ1つが正答群に含まれていれば正解
-  if (q.select_count === 1 && correctNums.length > 1) {
-    return selectedNums.length === 1 && correctNums.includes(selectedNums[0])
-  }
-  // それ以外：完全一致
-  const sorted = [...correctNums].sort()
-  const selected = [...selectedNums].sort()
-  return sorted.length === selected.length && sorted.every((n, i) => n === selected[i])
 }
 
 function formatTime(secs: number): string {
@@ -47,9 +33,9 @@ export default function TestSolveClient({ questions }: Props) {
   const [pending, setPending] = useState<number[]>([])
   const [flags, setFlags] = useState<Set<string>>(new Set())
   const [timeLeft, setTimeLeft] = useState(EXAM_SECONDS)
-  const savedRef = useRef(false)
+  const [gradedResults, setGradedResults] = useState<Record<string, GradedResult>>({})
+  const [gradingError, setGradingError] = useState(false)
   const sessionIdRef = useRef<string>(crypto.randomUUID())
-  const savedToDb = useRef<Set<string>>(new Set())
 
   const valid = questions.filter((q) => !q.is_invalid)
 
@@ -62,68 +48,39 @@ export default function TestSolveClient({ questions }: Props) {
 
   // Auto-grade at 0
   useEffect(() => {
-    if (phase === 'solve' && timeLeft === 0) setPhase('result')
+    if (phase === 'solve' && timeLeft === 0) finishTest(answers)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, phase])
 
-  // 1問分をDBに保存（重複スキップ）
-  function saveOneAnswer(q: QuestionWithChoices, selectedNums: number[]) {
-    if (savedToDb.current.has(q.id)) return
-    savedToDb.current.add(q.id)
-    const correct = isCorrect(q, { questionId: q.id, selectedNums })
-    fetch('/api/answers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        answers: [{ question_id: q.id, is_correct: correct, selected_nums: selectedNums }],
-        source: 'test',
-        session_id: sessionIdRef.current,
-      }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        console.error('[answers] save failed:', res.status, data)
-        savedToDb.current.delete(q.id) // 次回リトライ可能にする
-      }
-    }).catch(() => {
-      savedToDb.current.delete(q.id)
-    })
-  }
+  // 採点は解答送信後にサーバーサイドで行う（correct_choicesはクライアントに渡さない）
+  async function finishTest(finalAnswers: Record<string, UserAnswer>) {
+    setGradingError(false)
+    setPhase('grading')
+    const items = valid.map((q) => ({
+      question_id: q.id,
+      selected_nums: finalAnswers[q.id]?.selectedNums ?? [],
+    }))
 
-  // 結果画面遷移時に未保存分だけ一括保存（フォールバック）
-  useEffect(() => {
-    if (phase !== 'result' || savedRef.current) return
-    savedRef.current = true
-    const rows = valid
-      .filter((q) => answers[q.id] && !savedToDb.current.has(q.id))
-      .map((q) => {
-        savedToDb.current.add(q.id)
-        return { question_id: q.id, is_correct: isCorrect(q, answers[q.id]), selected_nums: answers[q.id].selectedNums }
+    try {
+      const res = await fetch('/api/test/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionIdRef.current, items }),
       })
-    if (rows.length === 0) return
-    fetch('/api/answers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers: rows, source: 'test', session_id: sessionIdRef.current }),
-    }).catch(() => {})
-  }, [phase])
-
-  // ページ離脱前に現在の未保存回答をsendBeaconで送信
-  useEffect(() => {
-    if (phase !== 'solve') return
-    const handleBeforeUnload = () => {
-      const q = valid[currentIndex]
-      if (!q || pending.length === 0 || savedToDb.current.has(q.id)) return
-      const correct = isCorrect(q, { questionId: q.id, selectedNums: pending })
-      const blob = new Blob([JSON.stringify({
-        answers: [{ question_id: q.id, is_correct: correct }],
-        source: 'test',
-        session_id: sessionIdRef.current,
-      })], { type: 'application/json' })
-      navigator.sendBeacon('/api/answers', blob)
+      if (!res.ok) throw new Error(`grading failed: ${res.status}`)
+      const data = await res.json()
+      const map: Record<string, GradedResult> = {}
+      for (const r of data.results as { question_id: string; is_correct: boolean; correct_nums: number[] }[]) {
+        map[r.question_id] = { isCorrect: r.is_correct, correctNums: r.correct_nums }
+      }
+      setGradedResults(map)
+      setPhase('result')
+    } catch (err) {
+      console.error('[test/submit] failed:', err)
+      setGradingError(true)
+      setPhase('solve')
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [phase, currentIndex, pending, valid])
+  }
 
   function startTest() {
     setCurrentIndex(0)
@@ -131,29 +88,23 @@ export default function TestSolveClient({ questions }: Props) {
     setPending([])
     setFlags(new Set())
     setTimeLeft(EXAM_SECONDS)
-    savedRef.current = false
+    setGradedResults({})
+    setGradingError(false)
     sessionIdRef.current = crypto.randomUUID()
-    savedToDb.current = new Set()
     setPhase('solve')
   }
 
-  // 問題移動時：pendingをcommitし、即座にDBへ保存
+  // 問題移動時：pendingをcommit（DB保存・採点は最終提出時にまとめて行う）
   function navigateTo(targetIndex: number | 'result') {
     const q = valid[currentIndex]
-    const selectedNums = pending.length > 0 ? pending : answers[q.id]?.selectedNums ?? []
     const newAnswers =
       pending.length > 0
         ? { ...answers, [q.id]: { questionId: q.id, selectedNums: pending } }
         : answers
     if (newAnswers !== answers) setAnswers(newAnswers)
 
-    // 選択肢がある場合は即時保存
-    if (selectedNums.length > 0) {
-      saveOneAnswer(q, selectedNums)
-    }
-
     if (targetIndex === 'result') {
-      setPhase('result')
+      finishTest(newAnswers)
     } else {
       setCurrentIndex(targetIndex)
       setPending(newAnswers[valid[targetIndex].id]?.selectedNums ?? [])
@@ -206,9 +157,20 @@ export default function TestSolveClient({ questions }: Props) {
     )
   }
 
+  // ─── GRADING ──────────────────────────────────────────────────────────────
+  if (phase === 'grading') {
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-white rounded-xl shadow p-6 text-center text-gray-600">
+          採点中...
+        </div>
+      </div>
+    )
+  }
+
   // ─── RESULT ───────────────────────────────────────────────────────────────
   if (phase === 'result') {
-    const correct = valid.filter((q) => isCorrect(q, answers[q.id])).length
+    const correct = valid.filter((q) => gradedResults[q.id]?.isCorrect).length
     const total = valid.length
     const unanswered = total - Object.keys(answers).length
     const score = Math.round((correct / total) * 100)
@@ -262,7 +224,7 @@ export default function TestSolveClient({ questions }: Props) {
           </div>
           <div className="grid grid-cols-10 gap-1">
             {valid.map((q) => {
-              const ok = isCorrect(q, answers[q.id])
+              const ok = gradedResults[q.id]?.isCorrect ?? false
               const ans = !!answers[q.id]
               const fl = flags.has(q.id)
               let cls =
@@ -289,8 +251,8 @@ export default function TestSolveClient({ questions }: Props) {
             <div className="space-y-2">
               {flagged.map((q) => {
                 const ans = answers[q.id]
-                const ok = isCorrect(q, ans)
-                const correctNums = q.correct_choices.map((c) => c.num).sort()
+                const ok = gradedResults[q.id]?.isCorrect ?? false
+                const correctNums = [...(gradedResults[q.id]?.correctNums ?? [])].sort((a, b) => a - b)
                 return (
                   <div
                     key={q.id}
@@ -330,8 +292,8 @@ export default function TestSolveClient({ questions }: Props) {
           <div className="space-y-2">
             {valid.map((q) => {
               const ans = answers[q.id]
-              const ok = isCorrect(q, ans)
-              const correctNums = q.correct_choices.map((c) => c.num).sort()
+              const ok = gradedResults[q.id]?.isCorrect ?? false
+              const correctNums = [...(gradedResults[q.id]?.correctNums ?? [])].sort((a, b) => a - b)
               const fl = flags.has(q.id)
               return (
                 <div
@@ -409,6 +371,12 @@ export default function TestSolveClient({ questions }: Props) {
 
   return (
     <div>
+      {gradingError && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-red-100 text-red-700 text-sm">
+          採点に失敗しました。通信状態を確認し、もう一度「採点する」を押してください。
+        </div>
+      )}
+
       {/* Timer bar */}
       <div
         className={`flex items-center justify-between mb-4 px-4 py-2.5 rounded-xl ${

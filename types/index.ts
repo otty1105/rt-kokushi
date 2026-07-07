@@ -50,6 +50,17 @@ export interface QuestionWithChoices extends Question {
   correct_choices: CorrectChoice[]
 }
 
+// テストモード用：正答（correct_choices）を含まない出題データ。
+// 採点はサーバーサイドで行うため、クライアントには正答を一切渡さない。
+export interface QuestionForTest extends Question {
+  choices: Choice[]
+}
+
+export interface GradedResult {
+  isCorrect: boolean
+  correctNums: number[]
+}
+
 export interface UserAnswer {
   questionId: string
   selectedNums: number[]

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { QuestionWithChoices } from '@/types'
+import { QuestionForTest } from '@/types'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import TestSolveClient from './TestSolveClient'
@@ -8,6 +8,9 @@ interface Props {
   params: { year: string; examNum: string; period: string }
 }
 
+// テストモードでは正答（correct_choices）を取得しない。
+// ブラウザのNetworkタブから正答が見えてしまうカンニング対策のため、
+// 採点は解答送信後に /api/test/submit でサーバーサイドのみで行う。
 async function getQuestions(year: number, examNum: number, period: string) {
   const isAm = period === 'am'
   const orderMin = isAm ? 1 : 101
@@ -17,8 +20,7 @@ async function getQuestions(year: number, examNum: number, period: string) {
     .from('questions')
     .select(`
       id, year, exam_num, question_order, category, question, select_count, is_invalid, image_url,
-      choices (id, question_id, num, text),
-      correct_choices (id, question_id, num)
+      choices (id, question_id, num, text)
     `)
     .eq('year', year)
     .eq('exam_num', examNum)
@@ -59,7 +61,7 @@ export default async function TestPeriodPage({ params }: Props) {
         <p className="text-gray-500 text-sm mt-1">全{questions.length}問</p>
       </div>
 
-      <TestSolveClient questions={questions as QuestionWithChoices[]} />
+      <TestSolveClient questions={questions as QuestionForTest[]} />
     </div>
   )
 }
