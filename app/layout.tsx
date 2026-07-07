@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import Header from '@/components/Header'
@@ -28,6 +29,7 @@ export default async function RootLayout({
         <Header initialUser={user} />
         <main className="max-w-4xl mx-auto px-4 py-6">{children}</main>
         <Footer />
+        <Analytics />
         <Script
           id="mathjax-config"
           strategy="beforeInteractive"

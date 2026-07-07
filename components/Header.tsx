@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { IconMenu2, IconX } from '@tabler/icons-react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 export default function Header({ initialUser }: Props) {
   const [user, setUser] = useState<User | null>(initialUser)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -54,7 +56,7 @@ export default function Header({ initialUser }: Props) {
           <span className="hidden sm:inline text-xs font-normal ml-1 opacity-80">診療放射線技師国家試験対策</span>
         </a>
 
-        <nav className="flex gap-4 ml-auto text-sm items-center">
+        <nav className="hidden md:flex gap-4 ml-auto text-sm items-center">
           <a href="/" className="hover:underline whitespace-nowrap">ホーム</a>
           <a href="/study" className="hover:underline whitespace-nowrap">学習</a>
           <a href="/test" className="hover:underline whitespace-nowrap">テスト</a>
@@ -108,7 +110,81 @@ export default function Header({ initialUser }: Props) {
             </a>
           )}
         </nav>
+
+        <button
+          onClick={() => setMobileNavOpen((o) => !o)}
+          className="md:hidden ml-auto p-1.5 -mr-1.5"
+          aria-label="メニュー"
+          aria-expanded={mobileNavOpen}
+        >
+          {mobileNavOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
+        </button>
       </div>
+
+      {mobileNavOpen && (
+        <nav className="md:hidden border-t border-blue-600 px-4 py-3 flex flex-col gap-1 text-sm">
+          <a
+            href="/"
+            onClick={() => setMobileNavOpen(false)}
+            className="py-2 hover:underline"
+          >
+            ホーム
+          </a>
+          <a
+            href="/study"
+            onClick={() => setMobileNavOpen(false)}
+            className="py-2 hover:underline"
+          >
+            学習
+          </a>
+          <a
+            href="/test"
+            onClick={() => setMobileNavOpen(false)}
+            className="py-2 hover:underline"
+          >
+            テスト
+          </a>
+          <a
+            href="/dashboard"
+            onClick={() => setMobileNavOpen(false)}
+            className="py-2 hover:underline"
+          >
+            ダッシュボード
+          </a>
+
+          {user ? (
+            <div className="pt-2 mt-1 border-t border-blue-600 flex flex-col gap-1">
+              <p className="py-1 text-xs opacity-80 truncate">
+                {user.email ?? user.user_metadata?.name ?? 'ユーザー'}
+              </p>
+              <a
+                href="/profile"
+                onClick={() => setMobileNavOpen(false)}
+                className="py-2 hover:underline"
+              >
+                プロフィール設定
+              </a>
+              <button
+                onClick={() => {
+                  setMobileNavOpen(false)
+                  handleSignOut()
+                }}
+                className="py-2 text-left text-red-200 hover:underline"
+              >
+                ログアウト
+              </button>
+            </div>
+          ) : (
+            <a
+              href="/login"
+              onClick={() => setMobileNavOpen(false)}
+              className="mt-2 bg-white text-blue-700 px-3 py-2 rounded-lg font-semibold text-center hover:bg-blue-50 transition-colors"
+            >
+              ログイン
+            </a>
+          )}
+        </nav>
+      )}
     </header>
   )
 }
