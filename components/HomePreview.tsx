@@ -29,7 +29,7 @@ const FEATURES: Feature[] = [
   {
     eyebrow: 'TEST MODE',
     title: 'テストモード',
-    description: '年度・午前午後を選んで、本番同様の形式で一気に解答。制限時間つきで実力を測れます。',
+    description: '年度・午前午後を選んで、本番同様の形式で一気に解答。制限時間つきで実力を測れます。アカウント登録をすると利用できます。',
     points: ['年度別・午前午後別に選択', '制限時間つきで本番形式', '解答後に問題マップで一覧採点'],
     imageMobile: '/screenshots/test-mode.png',
     imageDesktop: '/screenshots/test-mode-desktop.png',
@@ -37,6 +37,7 @@ const FEATURES: Feature[] = [
     cta: 'テストモードを見る',
     color: 'blue',
     reverse: true,
+    requiresAccount: true,
   },
   {
     eyebrow: 'DASHBOARD',
