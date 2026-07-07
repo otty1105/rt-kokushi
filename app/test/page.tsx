@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { supabase } from '@/lib/supabase'
+import { createSupabaseServer } from '@/lib/supabase-server'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import TestPageRefresher from './TestPageRefresher'
 
 async function getAvailableYears() {
@@ -26,6 +28,10 @@ async function getAvailableYears() {
 }
 
 export default async function TestPage() {
+  const supabaseServer = createSupabaseServer()
+  const { data: { user } } = await supabaseServer.auth.getUser()
+  if (!user) redirect('/login?returnTo=/test')
+
   const years = await getAvailableYears()
 
   return (
