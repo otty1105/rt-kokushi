@@ -137,14 +137,6 @@ export default function TestSolveClient({ questions }: Props) {
     return (
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-xl shadow p-6 text-center">
-          <p className="text-gray-600 mb-1">
-            有効問題数：<span className="font-bold text-gray-800">{valid.length}</span>問
-          </p>
-          {questions.length !== valid.length && (
-            <p className="text-xs text-gray-500 mb-1">
-              無効問題 {questions.length - valid.length} 問を除く
-            </p>
-          )}
           <p className="text-gray-600 text-sm mb-6">制限時間：2時間35分</p>
           <button
             onClick={startTest}
@@ -172,9 +164,15 @@ export default function TestSolveClient({ questions }: Props) {
   if (phase === 'result') {
     const correct = valid.filter((q) => gradedResults[q.id]?.isCorrect).length
     const total = valid.length
+    const invalidCount = questions.length - valid.length
     const unanswered = total - Object.keys(answers).length
     const score = Math.round((correct / total) * 100)
     const flagged = valid.filter((q) => flags.has(q.id))
+
+    // 合格ラインは通常60/100点だが、無効問題がある場合は(60-n)/(100-n)に調整
+    const passLineNumerator = 60 - invalidCount
+    const passLineDenominator = total
+    const passed = correct >= passLineNumerator
 
     return (
       <div className="space-y-4">
@@ -191,6 +189,28 @@ export default function TestSolveClient({ questions }: Props) {
           <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
             <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${score}%` }} />
           </div>
+
+          <div className="mt-5 pt-4 border-t border-gray-100 text-sm text-gray-600 space-y-1">
+            <p>
+              有効問題数：<span className="font-bold text-gray-800">{total}</span>問
+              {invalidCount > 0 && (
+                <span className="text-xs text-gray-500 ml-1">（無効問題 {invalidCount} 問を除く）</span>
+              )}
+            </p>
+            <p>
+              合格基準：
+              <span className="font-bold text-gray-800">
+                {passLineNumerator}/{passLineDenominator}問
+              </span>
+              正解で合格
+            </p>
+            <p
+              className={`text-lg font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}
+            >
+              判定：{passed ? '合格' : '不合格'}
+            </p>
+          </div>
+
           <div className="flex gap-3 mt-5 justify-center">
             <button
               onClick={startTest}
