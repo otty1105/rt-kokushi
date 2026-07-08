@@ -1,7 +1,19 @@
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link";
 import HomePreview from "@/components/HomePreview";
+import { supabase } from "@/lib/supabase";
 
-export default function Home() {
+async function getQuestionCount() {
+  const { count } = await supabase
+    .from('questions')
+    .select('*', { count: 'exact', head: true })
+  return count ?? 0
+}
+
+export default async function Home() {
+  const questionCount = await getQuestionCount();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] gap-10">
       <div className="text-center">
@@ -10,6 +22,17 @@ export default function Home() {
         <span className="inline-block text-xs font-bold text-blue-700 bg-blue-100 rounded-full px-3 py-1 mt-3">
           診療放射線技師 国家試験
         </span>
+
+        <div className="flex flex-col items-center gap-2 mt-4">
+          {questionCount > 0 && (
+            <span className="inline-block text-sm font-bold text-gray-700 bg-gray-100 rounded-full px-4 py-1.5">
+              全{questionCount.toLocaleString()}問収録
+            </span>
+          )}
+          <p className="text-xs text-gray-500">
+            会員登録なしでも最新1年分を体験できます
+          </p>
+        </div>
       </div>
 
       <HomePreview />

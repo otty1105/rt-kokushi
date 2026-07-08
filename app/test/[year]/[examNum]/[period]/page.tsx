@@ -49,7 +49,8 @@ export default async function TestPeriodPage({ params }: Props) {
   } = await supabaseServer.auth.getUser()
   if (!user) {
     const returnTo = `/test/${params.year}/${params.examNum}/${params.period}`
-    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`)
+    const message = encodeURIComponent('テストモードを利用するにはログインしてください')
+    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}&message=${message}`)
   }
 
   const questions = await getQuestions(year, examNum, period)

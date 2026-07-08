@@ -15,6 +15,8 @@ interface Props {
   categories: string[]
   allYears: number[]
   isAdmin?: boolean
+  initialLoggedIn?: boolean
+  latestYear?: number | null
 }
 
 interface AnswerState {
@@ -43,7 +45,7 @@ function isCorrect(q: QuestionWithChoices, selectedNums: number[]): boolean {
   return sorted.length === selected.length && sorted.every((n, i) => n === selected[i])
 }
 
-function SimilarQuestionsPanel({ questionId }: { questionId: string }) {
+function SimilarQuestionsPanel({ questionId, loggedIn, latestYear }: { questionId: string; loggedIn: boolean; latestYear: number | null }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [similars, setSimilars] = useState<SimilarQuestionInfo[] | null>(null)
@@ -84,6 +86,8 @@ function SimilarQuestionsPanel({ questionId }: { questionId: string }) {
           const otherId = r.question_id_1 === questionId ? r.question_id_2 : r.question_id_1
           const q = qMap.get(otherId)
           if (!q) return null
+          // 未ログインユーザーは最新年度以外の問題にアクセスできないため除外
+          if (!loggedIn && latestYear !== null && q.year !== latestYear) return null
           return {
             id: q.id,
             year: q.year,
@@ -167,7 +171,7 @@ function formatChoiceText(text: string): string {
   return text.replace(/(\d[\d,.]*)\s+([A-Z]{1,4}\s*―)/g, '$1　$2')
 }
 
-function QuestionCard({ q, loggedIn, returnTo, isAdmin }: { q: QuestionWithChoices; loggedIn: boolean; returnTo: string; isAdmin: boolean }) {
+function QuestionCard({ q, loggedIn, returnTo, isAdmin, latestYear }: { q: QuestionWithChoices; loggedIn: boolean; returnTo: string; isAdmin: boolean; latestYear: number | null }) {
   const [state, setState] = useState<AnswerState>({ selectedNums: [], submitted: false })
   const [choiceStats, setChoiceStats] = useState<ChoiceStat[] | null>(null)
   const [userHistory, setUserHistory] = useState<{ total: number; correct: number } | null>(null)
@@ -461,7 +465,7 @@ function QuestionCard({ q, loggedIn, returnTo, isAdmin }: { q: QuestionWithChoic
           >
             もう一度
           </button>
-          <SimilarQuestionsPanel questionId={q.id} />
+          <SimilarQuestionsPanel questionId={q.id} loggedIn={loggedIn} latestYear={latestYear} />
           {!loggedIn && (
             <a
               href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
@@ -477,7 +481,7 @@ function QuestionCard({ q, loggedIn, returnTo, isAdmin }: { q: QuestionWithChoic
   )
 }
 
-export default function StudyClient({ questions, categories, allYears, isAdmin = false }: Props) {
+export default function StudyClient({ questions, categories, allYears, isAdmin = false, initialLoggedIn = false, latestYear = null }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -489,7 +493,8 @@ export default function StudyClient({ questions, categories, allYears, isAdmin =
   const [filterYear, setFilterYear] = useState('')
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState<string | null>(null)
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(initialLoggedIn)
+  const [yearLockNotice, setYearLockNotice] = useState(false)
   const questionsRef = useRef<HTMLDivElement>(null)
   const PAGE_SIZE = 10
 
@@ -547,7 +552,7 @@ export default function StudyClient({ questions, categories, allYears, isAdmin =
         ) : (
           <div className="space-y-4">
             {filtered.map((q) => (
-              <QuestionCard key={q.id} q={q} loggedIn={loggedIn} returnTo={pathname} isAdmin={isAdmin} />
+              <QuestionCard key={q.id} q={q} loggedIn={loggedIn} returnTo={pathname} isAdmin={isAdmin} latestYear={latestYear} />
             ))}
           </div>
         )}
@@ -595,16 +600,46 @@ export default function StudyClient({ questions, categories, allYears, isAdmin =
           <label className="text-xs text-gray-600 mb-1 block">年度</label>
           <select
             value={filterYear}
-            onChange={(e) => handleFilterChange(() => setFilterYear(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value
+              const yearNum = value ? parseInt(value) : null
+              if (!loggedIn && yearNum !== null && yearNum !== latestYear) {
+                setYearLockNotice(true)
+                return
+              }
+              setYearLockNotice(false)
+              handleFilterChange(() => setFilterYear(value))
+            }}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           >
             <option value="">すべての年度</option>
-            {allYears.map((y) => (
-              <option key={y} value={y}>{y}年</option>
-            ))}
+            {allYears.map((y) => {
+              const locked = !loggedIn && y !== latestYear
+              return (
+                <option key={y} value={y}>{locked ? `🔒 ${y}年` : `${y}年`}</option>
+              )
+            })}
           </select>
+          {yearLockNotice && (
+            <p className="text-xs text-red-600 mt-1.5">
+              この年度を利用するにはログインしてください。
+              <a
+                href={`/login?returnTo=${encodeURIComponent(pathname)}`}
+                className="underline font-medium ml-1"
+              >
+                ログイン
+              </a>
+            </p>
+          )}
         </div>
       </div>
+
+      {!loggedIn && latestYear !== null && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-lg px-4 py-2.5 mb-3">
+          🔓 会員登録なしで{latestYear}年（最新年度）の問題をお試しいただけます。全年度を利用するには
+          <a href={`/login?returnTo=${encodeURIComponent(pathname)}`} className="underline font-medium ml-1">ログイン / 新規登録</a>
+        </div>
+      )}
 
       <div className="text-sm text-gray-600 mb-3">
         {filtered.length}問 ヒット
@@ -616,7 +651,7 @@ export default function StudyClient({ questions, categories, allYears, isAdmin =
         <>
           <div ref={questionsRef} className="space-y-4">
             {paged.map((q) => (
-              <QuestionCard key={`${q.id}-${filterCategory}-${filterPeriod}-${filterYear}`} q={q} loggedIn={loggedIn} returnTo={pathname} isAdmin={isAdmin} />
+              <QuestionCard key={`${q.id}-${filterCategory}-${filterPeriod}-${filterYear}`} q={q} loggedIn={loggedIn} returnTo={pathname} isAdmin={isAdmin} latestYear={latestYear} />
             ))}
           </div>
 

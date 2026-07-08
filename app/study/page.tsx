@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
+import { createSupabaseServer } from '@/lib/supabase-server'
 import { QuestionWithChoices } from '@/types'
 import { getIsAdmin } from '@/lib/admin'
 import StudyClient from './StudyClient'
@@ -46,23 +47,33 @@ async function getData() {
     (a, b) => b - a
   )
 
+  return { questions, allYears }
+}
+
+function extractCategories(questions: QuestionWithChoices[]) {
   const categorySet = new Set<string>()
   for (const q of questions) {
     if (q.category) categorySet.add(q.category)
   }
-
-  return {
-    questions,
-    categories: Array.from(categorySet).sort(),
-    allYears,
-  }
+  return Array.from(categorySet).sort()
 }
 
 export default async function StudyPage() {
-  const [{ questions, categories, allYears }, isAdmin] = await Promise.all([
+  const supabaseServer = createSupabaseServer()
+  const [{ questions: allQuestions, allYears }, isAdmin, { data: { user } }] = await Promise.all([
     getData(),
     getIsAdmin(),
+    supabaseServer.auth.getUser(),
   ])
+
+  const loggedIn = !!user
+  const latestYear = allYears[0] ?? null
+
+  // 未ログインユーザーは最新年度のみ利用可能（アクセス制限のため問題データ自体を絞り込む）
+  const questions =
+    loggedIn || latestYear === null
+      ? allQuestions
+      : allQuestions.filter((q) => q.year === latestYear)
 
   return (
     <div>
@@ -72,9 +83,11 @@ export default async function StudyPage() {
       <Suspense fallback={<div className="text-gray-500 text-sm">読み込み中...</div>}>
         <StudyClient
           questions={questions as QuestionWithChoices[]}
-          categories={categories}
+          categories={extractCategories(questions as QuestionWithChoices[])}
           allYears={allYears}
           isAdmin={isAdmin}
+          initialLoggedIn={loggedIn}
+          latestYear={latestYear}
         />
       </Suspense>
     </div>

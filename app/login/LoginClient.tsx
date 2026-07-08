@@ -21,6 +21,7 @@ export default function LoginClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('returnTo') ?? '/'
+  const infoMessage = searchParams.get('message')
 
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
@@ -86,6 +87,12 @@ export default function LoginClient() {
             </button>
           ))}
         </div>
+
+        {infoMessage && !error && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg px-4 py-3 mb-4">
+            {infoMessage}
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
