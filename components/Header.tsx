@@ -61,6 +61,7 @@ export default function Header({ initialUser }: Props) {
           <a href="/study" className="hover:underline whitespace-nowrap">学習</a>
           <a href="/test" className="hover:underline whitespace-nowrap">テスト</a>
           <a href="/dashboard" className="hover:underline whitespace-nowrap">ダッシュボード</a>
+          <a href="/about" className="hover:underline whitespace-nowrap">MediOutについて</a>
 
           {user ? (
             <div className="relative" ref={menuRef}>
@@ -150,6 +151,13 @@ export default function Header({ initialUser }: Props) {
             className="py-2 hover:underline"
           >
             ダッシュボード
+          </a>
+          <a
+            href="/about"
+            onClick={() => setMobileNavOpen(false)}
+            className="py-2 hover:underline"
+          >
+            MediOutについて
           </a>
 
           {user ? (

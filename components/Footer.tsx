@@ -12,6 +12,9 @@ export default function Footer() {
           MediOut
         </span>
         <nav className="flex gap-5">
+          <a href="/about" className="hover:underline" style={{ color: 'var(--text-secondary)' }}>
+            MediOutについて
+          </a>
           <a href="/privacy" className="hover:underline" style={{ color: 'var(--text-secondary)' }}>
             プライバシーポリシー
           </a>
