@@ -8,8 +8,25 @@ import BetaBanner from '@/components/BetaBanner'
 import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://mediout.jp'),
   title: 'MediOut 診療放射線技師国家試験対策',
   description: '診療放射線技師国家試験の過去問演習Webアプリ',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  openGraph: {
+    title: 'MediOut 診療放射線技師国家試験対策',
+    description: '診療放射線技師国家試験の過去問演習Webアプリ',
+    images: ['/og-image.png'],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MediOut 診療放射線技師国家試験対策',
+    description: '診療放射線技師国家試験の過去問演習Webアプリ',
+    images: ['/og-image.png'],
+  },
 }
 
 export default async function RootLayout({

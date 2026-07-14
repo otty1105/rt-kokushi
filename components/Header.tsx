@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import type { User } from '@supabase/supabase-js'
 import { IconMenu2, IconX } from '@tabler/icons-react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -51,9 +52,16 @@ export default function Header({ initialUser }: Props) {
   return (
     <header className="bg-blue-700 text-white shadow-md">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
-        <a href="/" className="font-bold hover:opacity-80 whitespace-nowrap leading-tight">
-          <span className="text-lg">MediOut</span>
-          <span className="hidden sm:inline text-xs font-normal ml-1 opacity-80">診療放射線技師国家試験対策</span>
+        <a href="/" className="flex items-center gap-2 hover:opacity-80 whitespace-nowrap flex-shrink-0 min-w-0">
+          <Image
+            src="/logo-header.png"
+            alt="MediOut"
+            width={909}
+            height={202}
+            priority
+            className="h-6 sm:h-7 w-auto flex-shrink-0"
+          />
+          <span className="hidden sm:inline text-xs font-normal opacity-80 leading-tight">診療放射線技師国家試験対策</span>
         </a>
 
         <nav className="hidden md:flex gap-4 ml-auto text-sm items-center">
